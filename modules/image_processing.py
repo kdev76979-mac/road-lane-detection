@@ -97,3 +97,4 @@ def detect_hough_lines(
     if lines is not None and len(lines) > 0:
         return lines.reshape(-1, 4)
     return None
+

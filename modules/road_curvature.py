@@ -95,3 +95,4 @@ class RoadCurvatureEstimator:
             "curvature_offset": round(offset, 2),
             "description": description
         }
+

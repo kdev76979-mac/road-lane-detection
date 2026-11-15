@@ -300,3 +300,4 @@ def test_invalid_video_path():
     processor = VideoProcessor()
     with pytest.raises(FileNotFoundError):
         processor.get_video_metadata("non_existent_file.mp4")
+

@@ -97,3 +97,4 @@ def generate_markdown_report(
             f.write(report_content)
 
     return report_content
+

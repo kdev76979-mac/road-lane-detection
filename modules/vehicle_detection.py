@@ -163,3 +163,4 @@ class VehicleDetector:
             self._load_error = f"Inference warning: {e}"
 
         return annotated, detections, len(detections)
+

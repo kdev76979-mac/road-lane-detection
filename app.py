@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import cv2
 
 from modules.lane_detection import LaneDetector
 from modules.lane_departure import LaneDepartureWarningSystem
@@ -22,6 +23,7 @@ from modules.vehicle_detection import VehicleDetector
 from modules.telemetry import TelemetryCollector
 from modules.video_processor import VideoProcessor
 from modules.report_generator import generate_markdown_report
+from src.utils import generate_sample_road_image
 
 
 # ==============================================================================
@@ -172,12 +174,13 @@ with st.sidebar:
         "Navigation",
         [
             "🏠 Overview",
+            "🕹️ Cockpit Simulator",
             "📹 Video Analysis",
             "🛡️ ADAS Monitoring",
             "📈 Telemetry & Charts",
             "📑 Audit Reports"
         ],
-        index=1 if st.session_state["processed"] else 0
+        index=1 if not st.session_state["processed"] else 2
     )
 
     st.markdown("---")
@@ -264,12 +267,131 @@ if menu_choice == "🏠 Overview":
     )
 
     st.info(
-        "💡 **Quick Start:** Go to the **'📹 Video Analysis'** tab in the sidebar, select the pre-loaded highway sample, and click **'Run ADAS Analysis'** to see live detection and telemetry in action!"
+        "💡 **Quick Start:** Go to the **'🕹️ Cockpit Simulator'** or **'📹 Video Analysis'** tab to see live lane departure alerts and interactive steering in action!"
     )
 
 
 # ==============================================================================
-# SECTION 2: VIDEO ANALYSIS & PROCESSING
+# SECTION 2: INTERACTIVE COCKPIT DRIVING SIMULATOR
+# ==============================================================================
+elif menu_choice == "🕹️ Cockpit Simulator":
+    st.title("🕹️ Interactive Driver Cockpit Simulator")
+    st.markdown(
+        "Experience **real-time vehicle steering and lane departure dynamics** from the driver's seat! "
+        "Drag the steering slider or click the action buttons to induce lateral drift and watch the ADAS system "
+        "highlight breached lane boundaries in **bold red** and project **windshield guidance chevrons**."
+    )
+
+    col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([2, 1, 1])
+    with col_ctrl1:
+        sim_drift = st.slider(
+            "🚗 Lateral Vehicle Drift / Steering (pixels)",
+            min_value=-150,
+            max_value=150,
+            value=0,
+            step=5,
+            help="Negative shifts vehicle left; positive shifts vehicle right."
+        )
+    with col_ctrl2:
+        sim_curve = st.slider(
+            "🛣️ Road Bend / Curvature",
+            min_value=-50,
+            max_value=50,
+            value=0,
+            step=5
+        )
+    with col_ctrl3:
+        sim_traffic = st.checkbox("Lead Vehicle Ahead", value=True)
+        sim_cockpit = st.checkbox("Cockpit & Steering View", value=True)
+
+    # Interactive Quick Steering Buttons
+    col_b1, col_b2, col_b3 = st.columns(3)
+    if col_b1.button("◀◀ Drift to Left Lane", use_container_width=True):
+        sim_drift = -120
+    if col_b2.button("● Center Lane (Safe Cruise)", use_container_width=True):
+        sim_drift = 0
+    if col_b3.button("Drift to Right Lane ▶▶", use_container_width=True):
+        sim_drift = 120
+
+    # 1. Synthesize procedural highway frame based on user steering
+    raw_frame = generate_sample_road_image(
+        width=1280,
+        height=720,
+        dash_offset=0.25,
+        lateral_offset=sim_drift,
+        curve_offset=sim_curve,
+        lead_car=sim_traffic,
+        draw_cockpit=sim_cockpit
+    )
+
+    # 2. Run Computer Vision Pipeline on the simulated frame
+    detector = LaneDetector()
+    lane_out = detector.process_frame(raw_frame, draw_overlay=False)
+    left_line = lane_out["left_line"]
+    right_line = lane_out["right_line"]
+    lane_center = lane_out["lane_center"]
+
+    # 3. Evaluate ADAS LDW State
+    ldw = LaneDepartureWarningSystem(departure_threshold_px=departure_thresh)
+    ldw_res = ldw.evaluate(
+        lane_center=lane_center,
+        frame_width=1280,
+        left_line=left_line,
+        right_line=right_line
+    )
+
+    departure_side = None
+    if ldw_res["warning_level"] in [LaneDepartureWarningSystem.STATUS_WARNING, LaneDepartureWarningSystem.STATUS_DEPARTURE]:
+        if ldw_res["position_label"] == "RIGHT_OFFSET":
+            departure_side = "RIGHT"
+        elif ldw_res["position_label"] == "LEFT_OFFSET":
+            departure_side = "LEFT"
+
+    # 4. Road Curvature Estimation
+    curve_est = RoadCurvatureEstimator()
+    curve_res = curve_est.estimate_curvature(left_line, right_line, 1280)
+
+    # 5. Draw Lane Overlay with Red Breached Boundary
+    annotated = detector.draw_lane_overlay(
+        raw_frame,
+        left_line,
+        right_line,
+        departure_side=departure_side
+    )
+
+    # 6. Render Windshield Guidance Chevrons and Telemetry HUD
+    processor = VideoProcessor()
+    annotated = processor.render_adas_hud(
+        annotated,
+        ldw_res,
+        curve_res,
+        vehicle_count=1 if sim_traffic else 0,
+        fps=32.4,
+        departure_side=departure_side
+    )
+
+    # Display annotated frame
+    st.image(
+        cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB),
+        caption="Interactive In-Cabin Driver Perspective (Live Computer Vision & ADAS Evaluation)",
+        use_container_width=True
+    )
+
+    # Real-Time Telemetry Cards
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    with col_m1:
+        dev_m = ldw_res.get("deviation_m")
+        st.metric("Lateral Deviation", f"{dev_m:+.2f} m" if dev_m else f"{ldw_res['deviation_px']:+.0f} px")
+    with col_m2:
+        st.metric("ADAS Status", ldw_res["warning_level"])
+    with col_m3:
+        st.metric("Vehicle Alignment", ldw_res["position_label"])
+    with col_m4:
+        st.metric("Road Direction", curve_res["direction"])
+
+
+# ==============================================================================
+# SECTION 3: VIDEO ANALYSIS & PROCESSING
 # ==============================================================================
 elif menu_choice == "📹 Video Analysis":
     st.title("📹 Video Upload & ADAS Processing")
@@ -570,3 +692,4 @@ elif menu_choice == "📑 Audit Reports":
 
         st.markdown("---")
         st.markdown(report_text)
+

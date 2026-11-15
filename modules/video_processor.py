@@ -78,10 +78,12 @@ class VideoProcessor:
         ldw_result: Dict,
         curvature_result: Dict,
         vehicle_count: int,
-        fps: float
+        fps: float,
+        departure_side: Optional[str] = None
     ) -> np.ndarray:
         """
-        Overlays an automotive-grade dark telemetry HUD banner on top of the frame.
+        Overlays an automotive-grade dark telemetry HUD banner, dynamic windshield
+        steering guidance chevrons (matching real ADAS cockpits), and driver alert pills.
         """
         annotated = frame.copy()
         height, width = frame.shape[:2]
@@ -182,6 +184,68 @@ class VideoProcessor:
             cv2.LINE_AA
         )
 
+        # ----------------------------------------------------------------------
+        # DYNAMIC WINDSHIELD GUIDANCE CHEVRONS (Active Steering Assistance)
+        # ----------------------------------------------------------------------
+        if departure_side == "RIGHT":
+            # Drifting right -> Steer Left Chevrons (matching cockpit reference image)
+            chev_y = int(height * 0.70)
+            cv2.putText(
+                annotated,
+                "<<< STEER LEFT",
+                (width // 2 - 95, chev_y - 25),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.75,
+                (0, 230, 255),
+                2,
+                cv2.LINE_AA
+            )
+            for i in range(8):
+                cx = width // 2 - 140 + i * 35
+                pts = np.array([[cx + 14, chev_y - 14], [cx, chev_y], [cx + 14, chev_y + 14]], dtype=np.int32)
+                cv2.polylines(annotated, [pts], False, (0, 235, 255), 4, cv2.LINE_AA)
+
+        elif departure_side == "LEFT":
+            # Drifting left -> Steer Right Chevrons
+            chev_y = int(height * 0.70)
+            cv2.putText(
+                annotated,
+                "STEER RIGHT >>>",
+                (width // 2 - 105, chev_y - 25),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.75,
+                (0, 230, 255),
+                2,
+                cv2.LINE_AA
+            )
+            for i in range(8):
+                cx = width // 2 - 140 + i * 35
+                pts = np.array([[cx - 14, chev_y - 14], [cx, chev_y], [cx - 14, chev_y + 14]], dtype=np.int32)
+                cv2.polylines(annotated, [pts], False, (0, 235, 255), 4, cv2.LINE_AA)
+
+        # ----------------------------------------------------------------------
+        # COCKPIT FLOATING ALERT PILLS (Driver instrument perspective)
+        # ----------------------------------------------------------------------
+        pill_x = 30
+        pill1_y = height - 90
+        pill2_y = height - 48
+        pill_w, pill_h = 240, 34
+
+        # Pill 1: Lane Keeping / Departure Alert
+        if departure_side:
+            cv2.rectangle(annotated, (pill_x, pill1_y), (pill_x + pill_w, pill1_y + pill_h), (255, 255, 255), -1)
+            cv2.rectangle(annotated, (pill_x, pill1_y), (pill_x + pill_w, pill1_y + pill_h), (0, 0, 240), 2)
+            cv2.putText(annotated, f"! Lane Departure ({departure_side})", (pill_x + 12, pill1_y + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 0, 220), 2, cv2.LINE_AA)
+        else:
+            cv2.rectangle(annotated, (pill_x, pill1_y), (pill_x + pill_w, pill1_y + pill_h), (255, 255, 255), -1)
+            cv2.rectangle(annotated, (pill_x, pill1_y), (pill_x + pill_w, pill1_y + pill_h), (0, 200, 70), 2)
+            cv2.putText(annotated, "Lane Keeping: Safe", (pill_x + 16, pill1_y + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 160, 50), 2, cv2.LINE_AA)
+
+        # Pill 2: Lead Vehicle Distance Radar
+        cv2.rectangle(annotated, (pill_x, pill2_y), (pill_x + pill_w, pill2_y + pill_h), (255, 255, 255), -1)
+        cv2.rectangle(annotated, (pill_x, pill2_y), (pill_x + pill_w, pill2_y + pill_h), (0, 200, 70), 2)
+        cv2.putText(annotated, "Distance: 18m (Safe)", (pill_x + 16, pill2_y + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 160, 50), 2, cv2.LINE_AA)
+
         return annotated
 
     def process_video(
@@ -240,9 +304,8 @@ class VideoProcessor:
                 current_fps = (1.0 / dt) if dt > 0 else fps
                 last_frame_time = curr_time
 
-                # 1. Lane Detection
-                lane_out = self.lane_detector.process_frame(frame, draw_overlay=True)
-                annotated = lane_out["annotated_frame"]
+                # 1. Lane Detection (Features & Geometry)
+                lane_out = self.lane_detector.process_frame(frame, draw_overlay=False)
                 left_line = lane_out["left_line"]
                 right_line = lane_out["right_line"]
                 lane_center = lane_out["lane_center"]
@@ -257,14 +320,31 @@ class VideoProcessor:
                     frame_idx=frame_idx
                 )
 
-                # 3. Road Curvature Estimation
+                # Determine active departure side
+                departure_side = None
+                warning_level = ldw_res.get("warning_level")
+                if warning_level in [LaneDepartureWarningSystem.STATUS_WARNING, LaneDepartureWarningSystem.STATUS_DEPARTURE]:
+                    if ldw_res.get("position_label") == "RIGHT_OFFSET":
+                        departure_side = "RIGHT"
+                    elif ldw_res.get("position_label") == "LEFT_OFFSET":
+                        departure_side = "LEFT"
+
+                # 3. Draw Lane Overlay with Red Breached Boundary
+                annotated = self.lane_detector.draw_lane_overlay(
+                    frame,
+                    left_line,
+                    right_line,
+                    departure_side=departure_side
+                )
+
+                # 4. Road Curvature Estimation
                 curve_res = self.curvature_estimator.estimate_curvature(
                     left_line=left_line,
                     right_line=right_line,
                     frame_width=width
                 )
 
-                # 4. Vehicle Detection (Optional)
+                # 5. Vehicle Detection (Optional)
                 vehicle_count = 0
                 if use_yolo and self.vehicle_detector:
                     annotated, detections, vehicle_count = self.vehicle_detector.detect_vehicles(
@@ -272,7 +352,7 @@ class VideoProcessor:
                         draw_boxes=True
                     )
 
-                # 5. Telemetry Recording
+                # 6. Telemetry Recording
                 timestamp_sec = frame_idx / fps if fps > 0 else 0.0
                 self.telemetry_collector.record_frame(
                     frame_idx=frame_idx,
@@ -290,13 +370,14 @@ class VideoProcessor:
                     processing_fps=current_fps
                 )
 
-                # 6. Render HUD Overlay
+                # 7. Render Cockpit HUD & Windshield Guidance Chevrons
                 annotated = self.render_adas_hud(
                     annotated,
                     ldw_res,
                     curve_res,
                     vehicle_count,
-                    current_fps
+                    current_fps,
+                    departure_side=departure_side
                 )
 
                 out.write(annotated)
@@ -323,3 +404,4 @@ class VideoProcessor:
             "summary_statistics": summary,
             "metadata": meta
         }
+

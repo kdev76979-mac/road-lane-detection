@@ -115,3 +115,4 @@ class TelemetryCollector:
         df = self.to_dataframe()
         df.to_csv(file_path, index=False)
         return file_path
+

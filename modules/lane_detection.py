@@ -181,17 +181,29 @@ class LaneDetector:
         frame: np.ndarray,
         left_line: Optional[Tuple[int, int, int, int]],
         right_line: Optional[Tuple[int, int, int, int]],
-        fill_color: Tuple[int, int, int] = (0, 220, 80),
-        line_color: Tuple[int, int, int] = (0, 255, 255),
-        line_thickness: int = 8,
+        departure_side: Optional[str] = None,
         alpha: float = 0.40
     ) -> np.ndarray:
         """
         Renders transparent driveable corridor polygon and highlighted boundary lines.
+        If a lane departure is active on a side (LEFT/RIGHT), that boundary turns VIBRANT RED,
+        simulating real automotive ADAS cockpit visuals.
         """
         overlay = np.zeros_like(frame)
 
-        # Driveable green corridor polygon
+        # Dynamic color coding based on lane departure state
+        fill_color = (0, 220, 80)     # Default emerald green corridor
+        left_color = (0, 255, 255)    # Default yellow/cyan boundary
+        right_color = (0, 255, 255)
+
+        if departure_side == "RIGHT":
+            right_color = (0, 0, 255)  # Bright Red on departed boundary
+            fill_color = (0, 140, 230) # Amber warning corridor
+        elif departure_side == "LEFT":
+            left_color = (0, 0, 255)   # Bright Red on departed boundary
+            fill_color = (0, 140, 230)
+
+        # Driveable corridor polygon
         if left_line is not None and right_line is not None:
             poly_pts = np.array([
                 [left_line[0], left_line[1]],
@@ -201,22 +213,26 @@ class LaneDetector:
             ], dtype=np.int32)
             cv2.fillPoly(overlay, [poly_pts], fill_color)
 
-        # Boundary lines
+        # Left Boundary line
         if left_line is not None:
+            thick = 12 if departure_side == "LEFT" else 8
             cv2.line(
                 overlay,
                 (left_line[0], left_line[1]),
                 (left_line[2], left_line[3]),
-                line_color,
-                line_thickness
+                left_color,
+                thick
             )
+
+        # Right Boundary line
         if right_line is not None:
+            thick = 12 if departure_side == "RIGHT" else 8
             cv2.line(
                 overlay,
                 (right_line[0], right_line[1]),
                 (right_line[2], right_line[3]),
-                line_color,
-                line_thickness
+                right_color,
+                thick
             )
 
         return cv2.addWeighted(frame, 1.0, overlay, alpha, 0)
@@ -224,7 +240,8 @@ class LaneDetector:
     def process_frame(
         self,
         frame: np.ndarray,
-        draw_overlay: bool = True
+        draw_overlay: bool = True,
+        departure_side: Optional[str] = None
     ) -> Dict:
         """
         Complete lane detection pipeline for a single frame.
@@ -266,7 +283,12 @@ class LaneDetector:
 
         # 8. Render Visual Overlay
         if draw_overlay:
-            annotated_frame = self.draw_lane_overlay(frame, left_line, right_line)
+            annotated_frame = self.draw_lane_overlay(
+                frame,
+                left_line,
+                right_line,
+                departure_side=departure_side
+            )
         else:
             annotated_frame = frame.copy()
 
@@ -282,3 +304,4 @@ class LaneDetector:
             "status": status,
             "image_shape": (height, width)
         }
+

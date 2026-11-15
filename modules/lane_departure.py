@@ -176,3 +176,4 @@ class LaneDepartureWarningSystem:
             "total_departure_events": self.total_departure_events,
             "total_warning_events": self.total_warning_events
         }
+
