@@ -135,9 +135,20 @@ def process_video(video_path, output_path=None, display=False):
 
 def process_webcam(cam_index=0, show_hud=True):
     """Processes live camera/webcam feed for real-time lane tracking."""
-    cap = cv2.VideoCapture(cam_index)
+    # Use native AVFoundation backend on macOS for better compatibility
+    if sys.platform == "darwin":
+        cap = cv2.VideoCapture(cam_index, cv2.CAP_AVFOUNDATION)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(cam_index)
+    else:
+        cap = cv2.VideoCapture(cam_index)
+
     if not cap.isOpened():
-        print(f"[!] Error: Could not open camera device index {cam_index}")
+        print(f"\n[!] Camera Error: Could not access camera device (index {cam_index}).")
+        print("    macOS Camera Permission Guide:")
+        print("    1. Open: System Settings -> Privacy & Security -> Camera")
+        print("    2. Toggle ON permission for your Terminal app (Terminal, iTerm, or VS Code).")
+        print("    3. Restart your terminal and re-run: python main.py --webcam 0\n")
         return
 
     detector = LaneDetector(smoothing_factor=0.85)
