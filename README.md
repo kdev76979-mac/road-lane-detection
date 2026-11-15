@@ -1,255 +1,403 @@
-# 🚗 Real-Time Autonomous Road Lane Line Detection & Telemetry System
+# 🚗 Road Lane Line Detection & ADAS Telemetry System
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.8%2B-green.svg?logo=opencv&logoColor=white)](https://opencv.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.30%2B-FF4B4B.svg?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![YOLO](https://img.shields.io/badge/YOLO-Ultralytics-00FFFF.svg?logo=yolo&logoColor=black)](https://github.com/ultralytics/ultralytics)
 [![NumPy](https://img.shields.io/badge/NumPy-1.24%2B-013243.svg?logo=numpy&logoColor=white)](https://numpy.org/)
+[![Pandas](https://img.shields.io/badge/Pandas-2.0%2B-150458.svg?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Autonomous Driving](https://img.shields.io/badge/ADAS-Lane%20Departure%20Warning-brightgreen.svg)](#)
-[![Tests Passing](https://img.shields.io/badge/Tests-10%2F10%20Passing-success.svg)](#)
+[![Tests Passing](https://img.shields.io/badge/Tests-20%2F20%20Passing-success.svg)](#)
 
-A production-grade Computer Vision system developed in Python and OpenCV designed to identify, extrapolate, and track highway lane boundaries in real time from camera feeds and dashcam videos. It computes vehicle lateral lane offset (Lane Departure Warning - LDW) and features a real-time HUD telemetry dashboard simulating Advanced Driver Assistance Systems (ADAS) in autonomous self-driving cars.
+A production-grade, portfolio-level Computer Vision and Advanced Driver Assistance System (ADAS) engineered with **Python**, **OpenCV**, and **Streamlit**. It processes real-time front-facing road video feeds to detect lane lines, track driveable corridors, evaluate lateral vehicle departure warnings (LDW), compute road curvature, optionally identify surrounding vehicles using **Ultralytics YOLO**, and stream analytical telemetry to an automotive dashboard.
 
 ---
 
-## 📸 Visual Pipeline & Output Showcase
+## 📸 Application & Pipeline Showcase
 
-### 1. Multi-Stage Computer Vision Diagnostic Matrix (2×2 Dashboard)
-Shows the complete algorithmic transition from raw input frame to final driveable corridor extrapolation:
-
-![4-Stage Pipeline Dashboard](output/dashboard_sample_road.jpg)
+### 1. Interactive Streamlit ADAS Cockpit & Real-Time Telemetry
+![ADAS Streamlit Dashboard](output/dashboard_sample_road.jpg)
 
 ### 2. Autonomous Lane Tracking with Telemetry HUD Overlay
-Annotated highway view highlighting the driveable green corridor, yellow lane boundaries, and active vehicle departure metrics:
-
-![Detected Road Lane Output](output/detected_sample_road.jpg)
+![Detected Highway Overlay](output/detected_sample_road.jpg)
 
 ---
 
 ## 📑 Table of Contents
-1. [🌟 Key Features](#-key-features)
-2. [🧠 Algorithmic Pipeline & Mathematics](#-algorithmic-pipeline--mathematics)
-3. [📂 Repository Structure](#-repository-structure)
-4. [🚀 Quickstart & Installation](#-quickstart--installation)
-5. [💻 Command-Line Interface (CLI) Usage](#-command-line-interface-cli-usage)
-6. [🧪 Unit Testing & Verification](#-unit-testing--verification)
-7. [🎯 Comprehensive Viva & Interview Preparation](#-comprehensive-viva--interview-preparation)
-8. [🔮 Future Roadmap](#-future-roadmap)
-9. [👤 Author & License](#-author--license)
+1. [1. Project Introduction](#1-project-introduction)
+2. [2. Problem Statement](#2-problem-statement)
+3. [3. Project Objectives](#3-project-objectives)
+4. [4. Proposed Solution](#4-proposed-solution)
+5. [5. Key Features](#5-key-features)
+6. [6. Technology Stack](#6-technology-stack)
+7. [7. System Architecture](#7-system-architecture)
+8. [8. Image Processing Methodology](#8-image-processing-methodology)
+9. [9. Lane Detection Methodology](#9-lane-detection-methodology)
+10. [10. ADAS Warning Logic & Lane Departure](#10-adas-warning-logic--lane-departure)
+11. [11. Vehicle Detection Methodology (YOLO)](#11-vehicle-detection-methodology-yolo)
+12. [12. Telemetry Methodology](#12-telemetry-methodology)
+13. [13. Installation Instructions](#13-installation-instructions)
+14. [14. Project Execution Instructions](#14-project-execution-instructions)
+15. [15. Folder Structure](#15-folder-structure)
+16. [16. Dataset References](#16-dataset-references)
+17. [17. Testing Instructions (pytest)](#17-testing-instructions-pytest)
+18. [18. Streamlit Community Cloud Deployment](#18-streamlit-community-cloud-deployment)
+19. [19. Limitations](#19-limitations)
+20. [20. Future Scope](#20-future-scope)
 
 ---
 
-## 🌟 Key Features
+## 1. Project Introduction
+Driver distraction and inadvertent lane drifting remain among the primary causes of highway collisions globally. Modern autonomous and semi-autonomous vehicles employ Advanced Driver Assistance Systems (ADAS) to perceive their surroundings, track road corridors, and issue timely alerts.
 
-- **Grayscale Mapping & Gaussian Smoothing:** Suppresses high-frequency asphalt textures, pebble noise, and compression artifacts using a $5 \times 5$ Gaussian kernel.
-- **Canny Edge Detection:** Computes dual-threshold intensity gradients ($50$ to $150$) with non-maximum suppression to extract lane boundaries.
-- **Dynamic Trapezoidal Region of Interest (ROI):** Isolates the forward drive path and discards irrelevancies like the sky, roadside structures, and vehicle hood.
-- **Probabilistic Hough Line Transform (`HoughLinesP`):** Converts edge pixel points into discrete mathematical line segments.
-- **Slope Partitioning & Linear Polynomial Regression:** Classifies lines into Left ($\text{slope} < 0$) and Right ($\text{slope} > 0$), filtering out horizontal noise, and fits a first-degree polynomial ($x = my + c$).
-- **Driveable Corridor Highlighting:** Paints a semi-transparent green polygonal corridor (`cv2.fillPoly`) between the left and right lane markers.
-- **Vehicle Lateral Offset & Lane Departure Warning (LDW):** Calculates vehicle displacement from the lane center in meters, alerting drivers when drifting.
-- **Temporal Video Smoothing:** Exponential Moving Average (EMA) prevents frame-to-frame lane jitter or blinking during momentary occlusions.
-- **Real-Time Webcam Support:** Process live feeds directly from connected webcams or video capture cards.
-- **Multi-Panel Diagnostic Exporter:** Generates a 4-quadrant diagnostic dashboard for presentations and debugging.
+This project delivers a functional, end-to-end software prototype of an intelligent driving assistant that ingests forward dashcam video feeds, performs deterministic Computer Vision edge and line geometry transformations, evaluates vehicle centering, and streams interactive telemetry into a dark-themed automotive dashboard.
 
 ---
 
-## 🧠 Algorithmic Pipeline & Mathematics
-
-```
-           [Input Video Frame / Image]
-                        │
-                        ▼
-            1. Grayscale Conversion
-               (cv2.COLOR_BGR2GRAY)
-                        │
-                        ▼
-          2. Gaussian Blur Noise Filter
-               (5x5 Gaussian Kernel)
-                        │
-                        ▼
-             3. Canny Edge Detection
-             (G = √(Gx² + Gy²), 50-150)
-                        │
-                        ▼
-           4. Trapezoidal ROI Masking
-           (Discards Sky, Hood, Scenery)
-                        │
-                        ▼
-         5. Probabilistic Hough Transform
-           (r = x·cos(θ) + y·sin(θ))
-                        │
-                        ▼
-          6. Slope Filtering & Polyfit
-           (Left: slope < 0 | Right: slope > 0)
-                        │
-                        ▼
-         7. Temporal Exponential Smoothing
-          (L_t = α·L_curr + (1-α)·L_prev)
-                        │
-                        ▼
-         8. Vehicle Center Offset & HUD
-         (offset = (x_car - x_lane) * 3.7 / width)
-                        │
-                        ▼
-       [Final Driveable Path & Telemetry HUD]
-```
-
-### Mathematical Foundations
-
-1. **Gaussian Smoothing:**
-   Convolves image pixels with a 2D Gaussian distribution:
-   $$G(x, y) = \frac{1}{2\pi\sigma^2} \exp\left(-\frac{x^2 + y^2}{2\sigma^2}\right)$$
-
-2. **Canny Gradient Computation:**
-   Gradients are calculated along $x$ and $y$ axes using Sobel operators:
-   $$|G| = \sqrt{G_x^2 + G_y^2}, \quad \theta = \arctan\left(\frac{G_y}{G_x}\right)$$
-
-3. **Hough Line Equation in Polar Space:**
-   Maps collinear Cartesian points $(x, y)$ into sinusoidal curves in $(\rho, \theta)$ space:
-   $$\rho = x \cos\theta + y \sin\theta$$
-
-4. **Vehicle Lateral Offset Calculation:**
-   Assuming a camera centered on the windshield and a standard lane width of $3.7\text{ meters}$:
-   $$\text{Lane Center} = \frac{x_{\text{left\_bottom}} + x_{\text{right\_bottom}}}{2}$$
-   $$\text{Vehicle Offset (m)} = \left(\frac{\text{Image Center} - \text{Lane Center}}{x_{\text{right\_bottom}} - x_{\text{left\_bottom}}}\right) \times 3.7\text{ m}$$
+## 2. Problem Statement
+Detecting highway lanes reliably in varying conditions presents several computer vision challenges:
+- High-frequency asphalt noise, shadows, and texture irregularities.
+- Occluded or broken lane dashes.
+- Processing latency constraints for real-time video streaming.
+- False positive lines originating from roadside barriers, sky, or vehicle hoods.
+- Video frame flickering due to single-frame detection drops.
 
 ---
 
-## 📂 Repository Structure
+## 3. Project Objectives
+1. **Deterministic Edge Pipeline:** Isolate road lane boundaries without hardcoded values using Gaussian filtering, Canny gradient computation, and Region of Interest (ROI) masking.
+2. **Mathematical Line Fitting:** Convert collinear edge pixels into continuous left and right boundaries using Probabilistic Hough Transform and 1st-degree polynomial regression ($x = my + c$).
+3. **Lateral Deviation & LDW:** Estimate vehicle position relative to the lane center and trigger categorized alerts (`SAFE`, `CAUTION`, `WARNING`, `LANE DEPARTURE`).
+4. **Road Curvature Estimation:** Analyze the convergence of lane boundaries to detect straight paths versus left/right bends.
+5. **Surrounding Vehicle Identification:** Integrate lightweight Ultralytics YOLO to track surrounding traffic without degrading lane processing throughput.
+6. **Telemetry & Dashboard Analytics:** Store frame-by-frame metrics in Pandas, generate interactive Plotly charts, and export auditable CSV/Markdown reports.
+
+---
+
+## 4. Proposed Solution
+A modular, clean architecture separating:
+- **Low-level image transformations** (`modules/image_processing.py`)
+- **Lane geometry and extrapolation** (`modules/lane_detection.py`)
+- **Safety warning state machines** (`modules/lane_departure.py`)
+- **Road curvature analysis** (`modules/road_curvature.py`)
+- **Deep learning object detection** (`modules/vehicle_detection.py`)
+- **Data logging and statistics** (`modules/telemetry.py`)
+- **Streaming video orchestration** (`modules/video_processor.py`)
+- **Automotive cockpit UI** (`app.py`)
+
+---
+
+## 5. Key Features
+
+- **Automotive-Grade Dark Theme:** Built with Streamlit, Plotly, and custom CSS styling for high-contrast visibility.
+- **Dynamic Region of Interest:** Automatically scales trapezoidal masking proportionally across any video resolution.
+- **Slope-Partitioned Regression:** Robust separation of left ($\text{slope} < 0$) and right ($\text{slope} > 0$) lines, discarding horizontal noise.
+- **Exponential Temporal Smoothing (EMA):** Prevents frame jitter and maintains stable lane overlays across momentary dropouts.
+- **Lane Departure Hysteresis:** Cooldown logic prevents duplicate counting of departure incidents across continuous video frames.
+- **Real-Time Telemetry HUD:** In-frame head-up display showing active warning level, deviation in meters/pixels, curvature, and FPS throughput.
+- **Interactive Analytics:** Plotly visualizations of lateral deviation trajectories, warning breakdowns, vehicle counts, and system FPS.
+- **Downloadable Deliverables:** Export processed videos (MP4), full telemetry logs (CSV), and comprehensive markdown audit reports.
+
+---
+
+## 6. Technology Stack
+
+| Domain | Technology / Library | Role |
+|---|---|---|
+| **Language** | Python 3.9 - 3.14 | Core execution engine |
+| **Computer Vision** | OpenCV (`opencv-python`) | Image filtering, Canny gradients, Hough transforms, Video I/O |
+| **Data Processing** | NumPy & Pandas | Numerical matrix manipulation and telemetry DataFrame logging |
+| **Deep Learning** | Ultralytics YOLO (YOLO11 / YOLOv8) | Nearby vehicle classification and bounding box localization |
+| **Frontend UI** | Streamlit | Responsive automotive web application |
+| **Data Visualization** | Plotly Express & Graph Objects | Dynamic time-series and distribution charts |
+| **Quality & Testing** | Pytest | 20-point automated test suite |
+
+---
+
+## 7. System Architecture
 
 ```text
-road-lane-detection/
-├── data/
-│   ├── test_images/                # Sample input road imagery
-│   │   └── sample_road.jpg
-│   └── test_videos/                # Sample highway dashcam recordings
-│       └── sample_highway.mp4
-├── output/                         # Processed visual outputs and dashboards
-│   ├── dashboard_sample_road.jpg   # 4-stage pipeline diagnostic matrix
-│   ├── detected_sample_road.jpg    # Final annotated image with HUD
-│   └── detected_sample_highway.mp4 # Processed video output
-├── src/
-│   ├── __init__.py                 # Package exports
-│   ├── lane_detector.py            # Core LaneDetector class and computer vision pipeline
-│   └── utils.py                    # Multi-panel visualizer and procedural road generator
-├── tests/
-│   ├── __init__.py
-│   └── test_lane_detector.py       # Unit test suite covering all CV stages
-├── .gitignore                      # Git exclusion rules
-├── LICENSE                         # MIT Open Source License
-├── main.py                         # CLI execution runner
-├── requirements.txt                # Package dependencies
-└── README.md                       # Documentation & viva study guide
+[Road Dashcam Video / Upload]
+               │
+               ▼
+┌───────────────────────────────┐
+│     VideoProcessor Engine     │ ◄── Sequential frame stream
+└──────────────┬────────────────┘
+               │
+       ┌───────┴───────────────────────────────┐
+       ▼                                       ▼
+┌──────────────────────────────┐       ┌──────────────────────────────┐
+│       LaneDetector           │       │    VehicleDetector (YOLO)    │
+│  - Grayscale & Gaussian Blur │       │  - Optional Object Inference │
+│  - Canny Edge Detection      │       │  - Cars, Buses, Trucks       │
+│  - Trapezoidal ROI Mask      │       │  - Bounding Box Annotations  │
+│  - HoughLinesP Transform     │       └──────────────┬───────────────┘
+│  - Polyfit & EMA Smoothing   │                      │
+└──────────────┬───────────────┘                      │
+               │                                      │
+       ┌───────┴───────────────────────┐              │
+       ▼                               ▼              │
+┌──────────────────────────────┐ ┌───────────────────────────┐│
+│   LaneDepartureWarningSystem │ │  RoadCurvatureEstimator   ││
+│  - Lateral Deviation (px/m)  │ │  - Midpoint Trajectory    ││
+│  - Warning Levels & Hysteresis│ │  - Straight / Bend State ││
+└──────────────┬───────────────┘ └─────────────┬─────────────┘│
+               │                               │              │
+               └───────────────┬───────────────┘              │
+                               ▼                              │
+┌─────────────────────────────────────────────────────────────┴─┐
+│                    TelemetryCollector                         │
+│  - Frame metrics logging (Pandas DataFrame)                   │
+│  - Real-time HUD banner rendering                             │
+│  - Statistical aggregation & CSV export                       │
+└──────────────────────────────┬────────────────────────────────┘
+                               │
+                               ▼
+┌───────────────────────────────────────────────────────────────┐
+│            Streamlit Interactive Dashboard (app.py)           │
+│  - Video player, ADAS status badges, Plotly graphs, Reports   │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🚀 Quickstart & Installation
+## 8. Image Processing Methodology
 
-### Step 1: Clone Repository
+1. **Grayscale Conversion:** Reduces three-channel BGR images to one-channel luminance, cutting computation overhead by 66% while preserving gradient edges.
+2. **Gaussian Smoothing:** Convolves pixels with a 2D Gaussian kernel ($5 \times 5$):
+   $$G(x, y) = \frac{1}{2\pi\sigma^2} \exp\left(-\frac{x^2 + y^2}{2\sigma^2}\right)$$
+3. **Canny Edge Detection:** Determines spatial intensity gradients using Sobel operators:
+   $$|G| = \sqrt{G_x^2 + G_y^2}, \quad \theta = \arctan\left(\frac{G_y}{G_x}\right)$$
+   Applies non-maximum suppression and hysteresis thresholding ($T_{\text{low}} = 50$, $T_{\text{high}} = 150$).
+4. **Trapezoidal ROI Masking:** Eliminates non-road artifacts by masking all pixels outside the driver's forward horizon.
+
+---
+
+## 9. Lane Detection Methodology
+
+1. **Probabilistic Hough Line Transform (`cv2.HoughLinesP`):** Converts edge pixels into discrete segments $[x_1, y_1, x_2, y_2]$ in polar space ($\rho = x\cos\theta + y\sin\theta$).
+2. **Slope Filtering:** Segments are partitioned:
+   - **Left Lane:** $-2.5 \le \text{slope} \le -0.4$ within the left spatial quadrant.
+   - **Right Lane:** $+0.4 \le \text{slope} \le +2.5$ within the right spatial quadrant.
+3. **Polynomial Regression:** Fits $x = f(y) = my + c$ to prevent mathematical singularity on vertical lines.
+4. **Exponential Moving Average (EMA):**
+   $$L_t = \alpha \cdot L_{\text{curr}} + (1 - \alpha) \cdot L_{t-1}$$
+   Provides flicker-free lane tracking across continuous video frames.
+
+---
+
+## 10. ADAS Warning Logic & Lane Departure
+
+Assuming the forward camera is centered along the vehicle's longitudinal axis ($x_{\text{vehicle}} = \text{width} / 2$):
+
+$$\text{Lane Center} = \frac{x_{\text{left\_bottom}} + x_{\text{right\_bottom}}}{2}$$
+$$\Delta_{\text{lateral}} = x_{\text{vehicle}} - \text{Lane Center}$$
+
+### Metric Conversion
+Using a standard highway lane width of $3.7\text{ meters}$:
+$$\text{Deviation (meters)} = \Delta_{\text{lateral}} \times \left(\frac{3.7}{x_{\text{right\_bottom}} - x_{\text{left\_bottom}}}\right)$$
+
+### Warning States & Hysteresis
+- **`SAFE`** ($|\Delta_{\text{lateral}}| < 35\text{px}$): Vehicle safely centered within driveable corridor.
+- **`CAUTION`** ($35\text{px} \le |\Delta_{\text{lateral}}| < 75\text{px}$): Minor lateral drift.
+- **`WARNING`** ($75\text{px} \le |\Delta_{\text{lateral}}| < 125\text{px}$): Significant departure trajectory.
+- **`LANE DEPARTURE`** ($|\Delta_{\text{lateral}}| \ge 125\text{px}$): Vehicle boundary breaches lane limits.
+- **Cooldown Logic:** Departure incidents are registered with a 30-frame refractory cooldown to prevent duplicate counting during a single drift event.
+
+---
+
+## 11. Vehicle Detection Methodology (YOLO)
+
+- Uses lightweight **Ultralytics YOLO** (`yolo11n.pt` / `yolov8n.pt`) with automatic Apple Silicon (MPS) and CPU acceleration.
+- Filters for COCO classes: `car` (2), `motorcycle` (3), `bus` (5), `truck` (7).
+- Draws color-coded bounding boxes and confidence badges.
+- **Fault-Tolerant:** Lazily imported; operates gracefully if weights or network are unavailable without interrupting lane tracking.
+
+---
+
+## 12. Telemetry Methodology
+
+Maintains a comprehensive Pandas DataFrame containing:
+- `frame_idx`: Sequential frame index
+- `timestamp_sec`: Elapsed video timestamp
+- `deviation_px`: Pixel displacement from lane center
+- `deviation_m`: Estimated metric offset
+- `position_label`: `CENTERED`, `LEFT_OFFSET`, `RIGHT_OFFSET`
+- `detection_status`: `BOTH_LANES_DETECTED`, `LEFT_LANE_ONLY`, etc.
+- `curvature_direction`: `STRAIGHT`, `CURVING_LEFT`, `CURVING_RIGHT`
+- `warning_level`: Active ADAS safety state
+- `vehicle_count`: Detected nearby vehicles
+- `processing_fps`: Real-time pipeline throughput
+
+---
+
+## 13. Installation Instructions
+
+### Prerequisites
+- Python 3.9, 3.10, 3.11, 3.12, 3.13, or 3.14
+- Git
+
+### Setup Steps
 ```bash
+# 1. Clone repository
 git clone https://github.com/kdev76979-mac/road-lane-detection.git
 cd road-lane-detection
-```
 
-### Step 2: Set up Virtual Environment
-```bash
-# macOS / Linux
+# 2. Create virtual environment
 python3 -m venv venv
+
+# macOS / Linux
 source venv/bin/activate
 
 # Windows
-python -m venv venv
 venv\Scripts\activate
-```
 
-### Step 3: Install Dependencies
-```bash
+# 3. Install dependencies
 pip install -r requirements.txt
 ```
 
-### Step 4: Run the Complete Demo
-Generates built-in highway data, processes both image and video feeds, and exports the 4-stage dashboard:
+---
+
+## 14. Project Execution Instructions
+
+### A. Run Streamlit Interactive Dashboard
+```bash
+streamlit run app.py
+```
+Open your browser at `http://localhost:8501`.
+
+### B. Run CLI Quick Demo
 ```bash
 python main.py
 ```
-Outputs will be saved directly into the `output/` directory!
+
+### C. Process a Custom Video or Live Webcam via CLI
+```bash
+# Custom video
+python main.py --video path/to/your_video.mp4
+
+# Live webcam (press 'q' to quit)
+python main.py --webcam 0
+```
 
 ---
 
-## 💻 Command-Line Interface (CLI) Usage
+## 15. Folder Structure
 
-| Option | Flag | Description |
-|---|---|---|
-| **Quick Demo** | `python main.py` | Runs the end-to-end pipeline on built-in sample data |
-| **Custom Image** | `python main.py --image path/to/image.jpg` | Detects lanes on any custom road picture |
-| **Custom Video** | `python main.py --video path/to/video.mp4` | Processes a dashcam video with temporal smoothing |
-| **Live Webcam** | `python main.py --webcam 0` | Starts real-time processing from connected camera |
-| **Disable HUD** | `python main.py --image ... --no-hud` | Renders clean lanes without telemetry badge |
-| **Custom Output**| `python main.py --image ... --output output/result.jpg` | Specifies a custom output path |
-| **Make Samples** | `python main.py --generate-samples` | Regenerates sample test images and videos |
+```text
+road-lane-detection/
+├── app.py                      # Main Streamlit web dashboard
+├── main.py                     # CLI execution runner
+├── requirements.txt            # Package dependencies
+├── README.md                   # Complete documentation & study guide
+├── LICENSE                     # MIT License
+├── .gitignore                  # Git exclusion rules
+│
+├── modules/                    # Modular ADAS perception package
+│   ├── __init__.py
+│   ├── image_processing.py     # Grayscale, Canny, Gaussian, ROI, Hough transforms
+│   ├── lane_detection.py       # Polyfit regression, slope filtering, temporal EMA
+│   ├── lane_departure.py       # Lateral deviation, warning states, cooldown logic
+│   ├── road_curvature.py       # Geometric curve & direction estimator
+│   ├── vehicle_detection.py    # Lightweight YOLO vehicle tracking wrapper
+│   ├── telemetry.py            # Pandas telemetry logger & statistical aggregator
+│   ├── video_processor.py      # Frame streaming engine, HUD renderer, video export
+│   └── report_generator.py     # Markdown audit report compiler
+│
+├── dataset/
+│   └── road_videos/            # Sample highway clips
+│       └── sample_highway.mp4
+│
+├── output/
+│   ├── processed_videos/       # Exported annotated videos with HUD
+│   ├── reports/                # Exported markdown and CSV safety audits
+│   ├── dashboard_sample_road.jpg
+│   └── detected_sample_road.jpg
+│
+└── tests/
+    ├── __init__.py
+    ├── test_adas_system.py     # 20-point comprehensive pytest test suite
+    └── test_lane_detector.py   # Unit test verification
+```
 
 ---
 
-## 🧪 Unit Testing & Verification
+## 16. Dataset References
+- Includes procedural highway generator (`generate_sample_road_image` & `generate_sample_road_video`) for zero-download local testing.
+- Compatible with dashcam datasets including:
+  - **TuSimple Lane Detection Benchmark**
+  - **CULane Dataset**
+  - **KITTI Vision Benchmark Suite**
+  - Standard `.mp4` dashcam footage (720p / 1080p).
 
-The project includes unit tests verifying each stage of the computer vision pipeline:
+---
+
+## 17. Testing Instructions (pytest)
+
+Run the automated test suite verifying all 20 modular pipeline stages:
 
 ```bash
-python -m unittest discover tests
+pytest tests/test_adas_system.py -v
 ```
 
 Expected output:
 ```text
-..........
-----------------------------------------------------------------------
-Ran 10 tests in 0.186s
+============================= test session starts ==============================
+collected 20 items
 
-OK
+tests/test_adas_system.py::test_to_grayscale PASSED                      [  5%]
+tests/test_adas_system.py::test_gaussian_blur PASSED                     [ 10%]
+tests/test_adas_system.py::test_canny_edges PASSED                       [ 15%]
+tests/test_adas_system.py::test_roi_mask PASSED                          [ 20%]
+tests/test_adas_system.py::test_hough_lines PASSED                       [ 25%]
+tests/test_adas_system.py::test_lane_detector_on_sample PASSED           [ 30%]
+tests/test_adas_system.py::test_lane_detector_missing_lanes PASSED       [ 35%]
+tests/test_adas_system.py::test_lane_temporal_smoothing PASSED           [ 40%]
+tests/test_adas_system.py::test_ldw_centered PASSED                      [ 45%]
+tests/test_adas_system.py::test_ldw_right_departure PASSED               [ 50%]
+tests/test_adas_system.py::test_ldw_left_departure PASSED                [ 55%]
+tests/test_adas_system.py::test_ldw_cooldown_logic PASSED                [ 60%]
+tests/test_adas_system.py::test_road_curvature_straight PASSED           [ 65%]
+tests/test_adas_system.py::test_road_curvature_right PASSED              [ 70%]
+tests/test_adas_system.py::test_road_curvature_left PASSED               [ 75%]
+tests/test_adas_system.py::test_vehicle_detector_initialization PASSED    [ 80%]
+tests/test_adas_system.py::test_telemetry_collector_dataframe_and_csv PASSED [ 85%]
+tests/test_adas_system.py::test_markdown_report_generation PASSED        [ 90%]
+tests/test_adas_system.py::test_video_metadata_and_processing PASSED     [ 95%]
+tests/test_adas_system.py::test_invalid_video_path PASSED                [100%]
+
+============================= 20 passed in 22.24s ==============================
 ```
 
 ---
 
-## 🎯 Comprehensive Viva & Interview Preparation
+## 18. Streamlit Community Cloud Deployment
 
-### 1. Why convert the image to Grayscale?
-**Answer:** Grayscale reduces 3-channel color data (RGB/BGR) to a single channel of intensity values, reducing computational overhead by $\sim 66\%$. Edge detection algorithms (such as Canny) rely exclusively on intensity gradients, making chrominance information redundant.
-
-### 2. Why is Gaussian Blur necessary before Canny edge detection?
-**Answer:** The derivative operations in edge detection are sensitive to high-frequency noise (e.g., asphalt aggregate, shadows, sun glare). A Gaussian filter acts as a low-pass filter to smooth out pixel-level fluctuations, ensuring that only true structural edges are detected.
-
-### 3. Why is the Left Lane slope negative in OpenCV coordinates?
-**Answer:** In OpenCV, the coordinate origin $(0, 0)$ is situated at the **top-left corner**. The vertical axis $y$ increases downwards. A lane marking traveling from bottom-left to center-horizon moves in the direction of increasing $x$ but decreasing $y$. Therefore, $\Delta y < 0$ while $\Delta x > 0$, producing a negative slope $\frac{\Delta y}{\Delta x} < 0$.
-
-### 4. What is the difference between standard and Probabilistic Hough Transform (`HoughLinesP`)?
-**Answer:** The standard Hough Transform votes in an accumulator array across all edge points and returns infinite mathematical lines $(\rho, \theta)$. `HoughLinesP` is an optimization that samples a subset of edge points and returns explicit finite line segments $[x_1, y_1, x_2, y_2]$ with a defined minimum length (`minLineLength`) and maximum allowed gap (`maxLineGap`), making it faster and practical for line extrapolation.
-
-### 5. Why fit $x = my + c$ instead of $y = mx + b$?
-**Answer:** Highway lane lines in perspective projection are nearly vertical. As lines approach verticality, their slope in $y = mx + b$ approaches infinity ($\infty$), which can cause numerical instability and overflow in linear regression. By expressing $x$ as a function of $y$ ($x = f(y)$), the slope remains well-conditioned because $y$ changes monotonically from the bottom of the screen to the horizon.
-
-### 6. How does Temporal Smoothing (Exponential Moving Average) work?
-**Answer:** In video streams, road occlusions, cracked pavement, or glare can cause detected lane parameters to jump abruptly or disappear for single frames. EMA smooths parameters using:
-$$L_t = \alpha \cdot L_{\text{curr}} + (1 - \alpha) \cdot L_{t-1}$$
-where $\alpha \in [0, 1]$ controls the weight between current detection and historical memory, producing stable, flicker-free tracking.
-
-### 7. How is Region of Interest (ROI) masking achieved?
-**Answer:** An image mask of the same dimensions is initialized with zeros. A trapezoidal polygon representing the driver's forward corridor is filled with $255$ using `cv2.fillPoly`. A bitwise AND operation (`cv2.bitwise_and`) between the Canny edge map and the mask discards all edges outside this polygon (such as sky, horizon, hood, and adjacent roadside elements).
-
-### 8. How is the Vehicle Center Offset calculated?
-**Answer:** We assume the camera is mounted along the vehicle's center axis. The midpoint of the bottom-most left and right lane intercepts represents the lane center. The distance between the image midpoint and this lane center (in pixels) is scaled to real-world meters using the standard highway lane width ($3.7\text{ meters}$).
+1. **Push to GitHub:** Push your repository to GitHub (`main` branch).
+2. **Link to Streamlit Cloud:** Go to [share.streamlit.io](https://share.streamlit.io).
+3. **Repository Settings:**
+   - **Repository:** `kdev76979-mac/road-lane-detection`
+   - **Branch:** `main`
+   - **Main file path:** `app.py`
+4. **Deploy:** Click **Deploy**. Streamlit Cloud will read `requirements.txt` and launch your dashboard with a shareable public URL.
 
 ---
 
-## 🔮 Future Roadmap
+## 19. Limitations
+- **Geometric Approximation:** Road curvature is estimated from perspective line convergence rather than a fully calibrated intrinsic camera matrix.
+- **Lighting Extremes:** Classical edge detection performance degrades under intense glare, snow, or unlit nighttime roads without deep learning priors.
+- **Prototype Scope:** Designed as an educational, portfolio-grade ADAS research prototype; not certified for life-critical automotive actuation or automatic steering.
 
-- [ ] **Curved Lane Tracking:** Implementation of 2nd-degree polynomial fitting ($x = ay^2 + by + c$) with Perspective Warp (Bird's Eye View / Inverse Perspective Mapping).
-- [ ] **Deep Learning Integration:** Hybrid ensemble with LaneNet or Ultra-Fast-Lane-Detection for adverse weather and night conditions.
-- [ ] **Object & Obstacle Detection:** Real-time YOLOv8 integration for joint lane tracking and vehicle/pedestrian bounding boxes.
-- [ ] **Edge Hardware Deployment:** Optimization for Raspberry Pi 5 / NVIDIA Jetson Nano using TensorRT.
+---
+
+## 20. Future Scope
+- [ ] **Inverse Perspective Mapping (IPM):** Bird's-eye view warp with 2nd-degree parabolic spline fitting ($x = ay^2 + by + c$).
+- [ ] **Hybrid Deep Learning:** Integration with LaneNet or Ultra-Fast-Lane-Detection for adverse weather and night conditions.
+- [ ] **Forward Collision Warning (FCW):** Bounding-box scale rate estimation ($\tau = s / \dot{s}$) for time-to-collision (TTC) calculations.
+- [ ] **Embedded Hardware Optimization:** Compilation to TensorRT / ONNX Runtime for deployment on NVIDIA Jetson or Raspberry Pi 5.
 
 ---
 
 ## 👤 Author & License
-
 - **Developer:** Dev Kushwah ([@kdev76979-mac](https://github.com/kdev76979-mac))
-- **License:** Distributed under the [MIT License](LICENSE). Free for academic, personal, and commercial use.
+- **License:** Distributed under the [MIT License](LICENSE).
