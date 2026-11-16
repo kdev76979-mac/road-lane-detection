@@ -23,7 +23,7 @@ from modules.vehicle_detection import VehicleDetector
 from modules.telemetry import TelemetryCollector
 from modules.video_processor import VideoProcessor
 from modules.report_generator import generate_markdown_report
-from src.utils import generate_sample_road_image
+from src.utils import generate_sample_road_image, draw_white_bmw_sedan
 
 
 # ==============================================================================
@@ -302,7 +302,11 @@ elif menu_choice == "🕹️ Cockpit Simulator":
         )
     with col_ctrl3:
         sim_traffic = st.checkbox("Lead Vehicle Ahead", value=True)
-        sim_cockpit = st.checkbox("Cockpit & Steering View", value=True)
+        sim_car_view = st.selectbox(
+            "Vehicle & Camera View",
+            ["White BMW Sedan (CarMaker ADAS)", "In-Cabin Cockpit & Steering"],
+            index=0
+        )
 
     # Interactive Quick Steering Buttons
     col_b1, col_b2, col_b3 = st.columns(3)
@@ -313,6 +317,9 @@ elif menu_choice == "🕹️ Cockpit Simulator":
     if col_b3.button("Drift to Right Lane ▶▶", use_container_width=True):
         sim_drift = 120
 
+    is_bmw_view = (sim_car_view == "White BMW Sedan (CarMaker ADAS)")
+    is_cockpit_view = (sim_car_view == "In-Cabin Cockpit & Steering")
+
     # 1. Synthesize procedural highway frame based on user steering
     raw_frame = generate_sample_road_image(
         width=1280,
@@ -321,7 +328,8 @@ elif menu_choice == "🕹️ Cockpit Simulator":
         lateral_offset=sim_drift,
         curve_offset=sim_curve,
         lead_car=sim_traffic,
-        draw_cockpit=sim_cockpit
+        draw_cockpit=is_cockpit_view,
+        draw_white_sedan=False # Draw on top of overlay for maximum sharpness
     )
 
     # 2. Run Computer Vision Pipeline on the simulated frame
@@ -359,7 +367,17 @@ elif menu_choice == "🕹️ Cockpit Simulator":
         departure_side=departure_side
     )
 
-    # 6. Render Windshield Guidance Chevrons and Telemetry HUD
+    # 6. Render White BMW Sports Sedan on top of the lane corridor (CarMaker Style)
+    if is_bmw_view:
+        draw_white_bmw_sedan(
+            annotated,
+            1280 // 2,
+            int(720 * 0.72),
+            w=230,
+            h=145
+        )
+
+    # 7. Render Windshield Guidance Chevrons and Telemetry HUD
     processor = VideoProcessor()
     annotated = processor.render_adas_hud(
         annotated,
